@@ -1,0 +1,10 @@
+# HTTP API server
+flask==3.0.0
+gunicorn==21.2.0
+
+# Configuration and secrets
+pyyaml==6.0.1
+
+# Logging
+python-json-logger==2.0.7
+

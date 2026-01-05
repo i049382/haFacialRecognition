@@ -1,0 +1,12 @@
+{
+  "domain": "face_recognition",
+  "name": "Face Recognition",
+  "codeowners": [],
+  "config_flow": false,
+  "dependencies": [],
+  "documentation": "https://github.com/yourusername/haFacialRecognition",
+  "integration_type": "system",
+  "iot_class": "local_polling",
+  "version": "0.0.1"
+}
+

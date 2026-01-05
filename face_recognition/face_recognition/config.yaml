@@ -1,0 +1,42 @@
+name: Face Recognition
+version: "0.0.1"
+slug: face_recognition
+description: Personal face recognition system for Home Assistant
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+init: false
+options:
+  # Recognition thresholds
+  confidence_threshold: 0.75
+  review_threshold: 0.60
+  
+  # Camera watch directories (filesystem cameras)
+  camera_paths: []
+  
+  # Model update polling
+  enable_daily_poll: false
+  daily_poll_time: "02:00"
+  
+  # Google Drive configuration
+  drive_folder_id: ""
+  
+  # API configuration
+  api_port: 8080
+  api_token: ""
+
+schema:
+  confidence_threshold: float
+  review_threshold: float
+  camera_paths: [str]
+  enable_daily_poll: bool
+  daily_poll_time: str
+  drive_folder_id: str
+  api_port: port
+  api_token: str
+
+image: "ghcr.io/home-assistant/{arch}-base-python:latest"
+
