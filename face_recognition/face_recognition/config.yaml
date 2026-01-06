@@ -9,6 +9,8 @@ arch:
   - armv7
   - i386
 init: false
+ports:
+  8080/tcp: 8080
 options:
   # Recognition thresholds
   confidence_threshold: 0.75
