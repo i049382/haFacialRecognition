@@ -4,20 +4,23 @@ This document must be followed **in conjunction with the PRD**.
 
 ---
 
-## Chunk 0 – Configuration & Credentials
+## Chunk 0 – Configuration & Credentials ✅ COMPLETE
 
 ### Scope
 - Add-on configuration
 - Secret handling
 
 ### Deliverables
-- `config.yaml` schema
-- Threshold config
-- Drive auth via HA secrets
+- ✅ `config.yaml` schema
+- ✅ Threshold config
+- ✅ Drive auth via HA secrets
 
 ### Testing
-- Add-on loads config
-- Missing secrets fail gracefully
+- ✅ Add-on loads config
+- ✅ Missing secrets fail gracefully
+
+### Status
+**COMPLETE** - Tested and working in Home Assistant (2026-01-06)
 
 ---
 

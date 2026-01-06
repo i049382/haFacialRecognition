@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from face_recognition_addon.config import ConfigLoader
+from face_recognition_addon.api import FaceRecognitionAPI
 
 # Configure logging
 logging.basicConfig(
@@ -26,19 +27,15 @@ def main():
         config = config_loader.load()
         
         logger.info("Configuration loaded successfully")
-        logger.info("Add-on ready (Chunk 0 - Configuration only)")
+        logger.info("Add-on ready (Chunk 2 - IPC & Event Plumbing)")
         
-        # TODO: In future chunks, start HTTP API server here
-        # For now, keep running so HA doesn't think it crashed
-        # This allows testing add-on installation and config loading
-        logger.info("Waiting for future functionality... (Chunk 2+)")
+        # Start HTTP API server
+        api = FaceRecognitionAPI(config)
+        logger.info(f"HTTP API server starting on port {config.api_port}")
         
-        # Keep process alive for HA testing
-        import time
+        # Run API server (blocks until interrupted)
         try:
-            while True:
-                time.sleep(60)  # Sleep for 1 minute, then check again
-                logger.debug("Add-on still running (waiting for Chunk 2 implementation)")
+            api.run(host='0.0.0.0', port=config.api_port, debug=False)
         except KeyboardInterrupt:
             logger.info("Shutting down...")
             return 0
@@ -59,4 +56,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

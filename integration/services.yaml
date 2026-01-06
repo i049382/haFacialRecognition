@@ -1,0 +1,32 @@
+fire_event:
+  name: Fire Recognition Event
+  description: Manually fire a face recognition event (for testing)
+  fields:
+    person_id:
+      name: Person ID
+      description: Person identifier
+      required: true
+      selector:
+        text:
+    display_name:
+      name: Display Name
+      description: Display name for the person
+      required: true
+      selector:
+        text:
+    confidence:
+      name: Confidence
+      description: Recognition confidence (0.0-1.0)
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 0.01
+    camera:
+      name: Camera
+      description: Camera identifier
+      required: true
+      selector:
+        text:
+
