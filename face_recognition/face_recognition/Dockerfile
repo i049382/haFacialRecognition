@@ -8,12 +8,11 @@ WORKDIR /app
 RUN apk add --no-cache \
     python3 \
     py3-pip \
-    sqlite \
-    && pip3 install --no-cache-dir --upgrade pip
+    sqlite
 
 # Copy requirements
 COPY requirements.txt /app/
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy application code
 COPY . /app/
