@@ -1,62 +1,86 @@
-# Rebuild Add-on After Fix
+# Steps to Rebuild Add-on with Chunk 2 Code
 
-## Current Status
+## Problem
+The add-on is still running Chunk 0 code (old code). Logs show:
+```
+Add-on ready (Chunk 0 - Configuration only)
+Waiting for future functionality... (Chunk 2+)
+```
 
-✅ `__main__.py` file created locally  
-❌ Add-on still using old code (needs rebuild)
+But it should show:
+```
+Add-on ready (Chunk 2 - IPC & Event Plumbing)
+HTTP API server starting on port 8080
+```
 
-## Why It's Still Failing
+## Solution: Force HA to Rebuild
 
-The add-on container was built with the old code (before `__main__.py` existed). You need to rebuild it.
+### Step 1: Push Latest Code to GitHub ✅
+```bash
+git push
+```
+(Make sure all Chunk 2 files are pushed)
 
-## Steps to Fix
+### Step 2: Force HA to Refresh Repository
 
-### Step 1: Commit and Push Changes
+**Option A: Refresh Repository**
+1. Go to **Settings → Add-ons → Add-on Store**
+2. Click **⋮** (three dots) → **Repositories**
+3. Find your repository
+4. Click **⋮** next to it → **Reload** (or **Remove** then **Add** again)
 
-**In GitHub Desktop:**
-1. You should see `__main__.py` in changed files
-2. **Check the box** next to it
-3. **Summary:** `Fix: Rename main.py to __main__.py for module execution`
-4. **Click:** "Commit to main"
-5. **Click:** "Push origin"
+**Option B: Update Add-on**
+1. Go to **Settings → Add-ons → Face Recognition**
+2. If you see an **Update** button, click it
+3. If not, proceed to Step 3
 
-### Step 2: Rebuild Add-on in HA
+### Step 3: Rebuild Add-on (Required!)
 
-**Option A: Uninstall and Reinstall (Recommended)**
-1. **Stop** the add-on (if running)
-2. **Uninstall** the add-on
-3. **Wait** 30 seconds
-4. **Reinstall** the add-on
-5. **Start** the add-on
+**Important:** Simply restarting won't work - you must rebuild!
 
-**Option B: Force Rebuild (If Available)**
-1. **Stop** the add-on
-2. Look for **"Rebuild"** button (if available)
-3. Click **Rebuild**
-4. **Start** the add-on
+1. Go to **Settings → Add-ons → Face Recognition**
+2. Click **Uninstall** (this removes the old container)
+3. Wait for uninstall to complete
+4. Click **Install** (this rebuilds with new code from GitHub)
+5. Wait for installation (may take 1-2 minutes)
+6. Click **Start**
 
-### Step 3: Verify
+### Step 4: Verify New Code is Running
 
-**After rebuild and start, check logs:**
-- Should see: `Starting Face Recognition Add-on`
-- Should see: `Configuration loaded successfully`
-- Should NOT see: `No module named face_recognition_addon.__main__`
+Check the **Logs** tab. You should see:
+```
+Starting Face Recognition Add-on
+Configuration loaded successfully
+Add-on ready (Chunk 2 - IPC & Event Plumbing)
+HTTP API server starting on port 8080
+```
+
+If you still see "Chunk 0" messages, the rebuild didn't work. Try:
+- Check GitHub - are the files actually there?
+- Remove repository and re-add it
+- Check HA Supervisor logs for errors
+
+### Step 5: Test API
+
+Once logs show "HTTP API server starting on port 8080":
+- Try: `http://homeassistant.local:8080/status`
+- Or: `http://YOUR_HA_IP:8080/status`
+
+Should return:
+```json
+{
+  "status": "ready",
+  "version": "0.0.1",
+  "chunk": "2"
+}
+```
 
 ## Why Rebuild is Needed
 
-Docker containers are built from the code at build time. The old container still has `main.py` instead of `__main__.py`. Rebuilding creates a new container with the correct file.
-
-## Quick Checklist
-
-- [ ] `__main__.py` exists locally ✅
-- [ ] Changes committed to git
-- [ ] Changes pushed to GitHub
-- [ ] Add-on uninstalled in HA
-- [ ] Add-on reinstalled in HA
-- [ ] Add-on started
-- [ ] Logs show success
+Docker containers are immutable - once built, they don't change. To get new code:
+- ❌ **Restart** = Uses same container (old code)
+- ✅ **Uninstall + Install** = Builds new container (new code)
 
 ---
 
-**After pushing and rebuilding, the add-on should start successfully!**
-
+**After rebuilding, the API should be accessible!**
