@@ -38,5 +38,4 @@ schema:
   api_port: port
   api_token: str
 
-image: ghcr.io/home-assistant/{arch}-base-python
 
