@@ -34,7 +34,7 @@ class FaceRecognitionAPI:
             return jsonify({
                 "status": "ready",
                 "version": "0.0.1",
-                "chunk": "2"
+                "chunk": "3"
             }), 200
         
         @self.app.route('/event', methods=['POST'])
@@ -56,26 +56,38 @@ class FaceRecognitionAPI:
             
             data = request.get_json()
             
-            # Validate required fields
-            required_fields = ['person_id', 'display_name', 'confidence', 'camera']
-            missing_fields = [field for field in required_fields if field not in data]
-            if missing_fields:
-                return jsonify({
-                    "error": "Missing required fields",
-                    "missing": missing_fields
-                }), 400
-            
-            # Log event received
-            logger.info(f"Event received: {data.get('person_id')} detected on {data.get('camera')}")
-            
-            # Call callback if provided (for future use)
-            if self.event_callback:
-                try:
-                    self.event_callback(data)
-                except Exception as e:
-                    logger.error(f"Error in event callback: {e}")
-            
-            return jsonify({"status": "received"}), 200
+            # Check if this is a Nest ingestion event or recognition event
+            if data.get('event_type') == 'nest_event':
+                # Nest ingestion event (Chunk 3)
+                logger.info(f"Nest event received: {data.get('event_type_nest')} on device {data.get('device_id')}")
+                
+                # For Chunk 3, just log the event
+                # In later chunks, we'll process the image for face recognition
+                logger.info(f"Image size: {data.get('image_size', 0)} bytes")
+                
+                return jsonify({"status": "received", "type": "nest_ingestion"}), 200
+            else:
+                # Recognition event (Chunk 2+)
+                # Validate required fields
+                required_fields = ['person_id', 'display_name', 'confidence', 'camera']
+                missing_fields = [field for field in required_fields if field not in data]
+                if missing_fields:
+                    return jsonify({
+                        "error": "Missing required fields",
+                        "missing": missing_fields
+                    }), 400
+                
+                # Log event received
+                logger.info(f"Recognition event received: {data.get('person_id')} detected on {data.get('camera')}")
+                
+                # Call callback if provided (for future use)
+                if self.event_callback:
+                    try:
+                        self.event_callback(data)
+                    except Exception as e:
+                        logger.error(f"Error in event callback: {e}")
+                
+                return jsonify({"status": "received", "type": "recognition"}), 200
         
         @self.app.errorhandler(404)
         def not_found(error):

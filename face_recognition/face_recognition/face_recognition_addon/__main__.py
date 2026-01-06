@@ -27,7 +27,7 @@ def main():
         config = config_loader.load()
         
         logger.info("Configuration loaded successfully")
-        logger.info("Add-on ready (Chunk 2 - IPC & Event Plumbing)")
+        logger.info("Add-on ready (Chunk 3 - Nest Event Ingestion)")
         
         # Start HTTP API server
         api = FaceRecognitionAPI(config)

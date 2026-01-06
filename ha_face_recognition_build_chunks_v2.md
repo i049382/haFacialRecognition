@@ -38,18 +38,23 @@ This document must be followed **in conjunction with the PRD**.
 
 ---
 
-## Chunk 2 – IPC & Event Plumbing
+## Chunk 2 – IPC & Event Plumbing ✅ COMPLETE
 
 ### Scope
 - Add-on exposes local HTTP API
 - Integration consumes API and fires HA events
 
 ### Deliverables
-- `POST /event`
-- `GET /status`
+- ✅ `POST /event`
+- ✅ `GET /status`
 
 ### Testing
-- Mock event → HA event visible
+- ✅ Mock event → HA event visible
+- ✅ HTTP API accessible on port 8080
+- ✅ Status endpoint returns correct JSON
+
+### Status
+**COMPLETE** - Tested and working in Home Assistant (2026-01-06)
 
 ---
 
