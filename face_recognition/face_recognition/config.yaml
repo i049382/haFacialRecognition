@@ -10,7 +10,7 @@ arch:
   - i386
 init: false
 ports:
-  8080/tcp: 8080
+  8180/tcp: 8180
 options:
   # Recognition thresholds
   confidence_threshold: 0.75

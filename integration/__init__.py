@@ -1,6 +1,7 @@
 """Face Recognition integration for Home Assistant."""
 
 import logging
+import asyncio
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -23,41 +24,63 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     Returns:
         True if setup successful
     """
+    _LOGGER.error("=== FACE RECOGNITION INTEGRATION LOADING (CHUNK 3) ===")
     _LOGGER.info("Face Recognition integration loading (Chunk 3)")
     
-    # Set up services
-    from . import services
-    await services.async_setup_services(hass)
-    
-    # Chunk 3: Start Nest event listener if configured
-    # For now, we'll start it automatically if Nest integration is available
-    # In future chunks, this will be configurable
-    
-    # Check if Nest integration is available
-    if "nest" in hass.config.components:
-        _LOGGER.info("Nest integration detected, starting Nest event listener")
-        from .nest_listener import NestEventListener
+    try:
+        # Set up services
+        _LOGGER.error("Setting up services...")
+        from . import services
+        await services.async_setup_services(hass)
+        _LOGGER.error("Services set up successfully")
         
-        # Get add-on API config from integration config or defaults
-        # For Chunk 3, use defaults (add-on runs on localhost:8080)
-        integration_config = config.get(DOMAIN, {})
-        api_host = integration_config.get("api_host", "localhost")
-        api_port = integration_config.get("api_port", 8080)
-        api_token = integration_config.get("api_token", "")
-        api_url = f"http://{api_host}:{api_port}"
+        # Chunk 3: Start Nest event listener if configured
+        # For now, we'll start it automatically if Nest integration is available
+        # In future chunks, this will be configurable
         
-        _LOGGER.info(f"Connecting to add-on API at {api_url}")
+        # Check if Nest integration is available
+        # Note: Nest might load after our integration, so we check immediately and also later
+        _LOGGER.error(f"Checking for Nest integration. Components: nest in components = {'nest' in hass.config.components}")
         
-        # Create and start Nest listener
-        nest_listener = NestEventListener(hass, api_url, api_token)
-        await nest_listener.async_start()
+        async def start_nest_listener():
+            """Start Nest listener."""
+            from .nest_listener import NestEventListener
+            
+            integration_config = config.get(DOMAIN, {})
+            api_host = integration_config.get("api_host", "localhost")
+            api_port = integration_config.get("api_port", 8180)  # Default matches add-on port
+            api_token = integration_config.get("api_token", "")
+            api_url = f"http://{api_host}:{api_port}"
+            
+            _LOGGER.error(f"Connecting to add-on API at {api_url}")
+            
+            nest_listener = NestEventListener(hass, api_url, api_token)
+            await nest_listener.async_start()
+            
+            hass.data.setdefault(DOMAIN, {})["nest_listener"] = nest_listener
+            _LOGGER.error("Nest listener started successfully")
         
-        # Store listener in hass data
-        hass.data.setdefault(DOMAIN, {})["nest_listener"] = nest_listener
-    else:
-        _LOGGER.info("Nest integration not found, skipping Nest event listener")
-    
-    return True
+        if "nest" in hass.config.components:
+            _LOGGER.error("Nest integration detected, starting Nest event listener")
+            await start_nest_listener()
+        else:
+            _LOGGER.error("Nest integration not found immediately, will check again in 10 seconds")
+            # Check again after a delay (Nest might load after our integration)
+            async def delayed_nest_check():
+                await asyncio.sleep(10)
+                if "nest" in hass.config.components:
+                    _LOGGER.error("Nest integration detected (delayed check), starting Nest event listener")
+                    await start_nest_listener()
+                else:
+                    _LOGGER.error("Nest integration still not found after delay - Nest listener will not start")
+            
+            hass.async_create_task(delayed_nest_check())
+        
+        _LOGGER.error("Face Recognition integration setup complete")
+        return True
+    except Exception as e:
+        _LOGGER.exception(f"Error setting up Face Recognition integration: {e}")
+        return False
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

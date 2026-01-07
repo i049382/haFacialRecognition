@@ -56,13 +56,15 @@ class NestEventListener:
         """
         event_data = event.data
         
+        _LOGGER.error(f"=== NEST EVENT RECEIVED === Data: {event_data}")
+        
         # Extract event information
         event_type = event_data.get("type")
         device_id = event_data.get("device_id")
         event_id = event_data.get("event_id")
         
         if not all([event_type, device_id, event_id]):
-            _LOGGER.debug(f"Incomplete Nest event data: {event_data}")
+            _LOGGER.warning(f"Incomplete Nest event data: {event_data}")
             return
         
         # Only process motion/person events
@@ -70,7 +72,7 @@ class NestEventListener:
             _LOGGER.debug(f"Skipping Nest event type: {event_type}")
             return
         
-        _LOGGER.info(f"Processing Nest event: {event_type} on device {device_id}")
+        _LOGGER.error(f"Processing Nest event: type={event_type}, device={device_id}, event_id={event_id}")
         
         # Fetch image immediately (Nest URLs expire quickly)
         image_data = await self._fetch_nest_image(device_id, event_id)
@@ -92,11 +94,12 @@ class NestEventListener:
             Image bytes, or None if failed
         """
         try:
-            # Construct Nest API URL
+            # Construct Nest API URL - use HA internal API
+            # The session from async_get_clientsession is configured for HA internal API
             # Format: /api/nest/event_media/<device_id>/<event_id>/thumbnail
             api_url = f"/api/nest/event_media/{device_id}/{event_id}/thumbnail"
             
-            _LOGGER.debug(f"Fetching Nest image from: {api_url}")
+            _LOGGER.error(f"Fetching Nest image from HA API: {api_url}")
             
             # Fetch image (with timeout - Nest URLs expire quickly)
             async with self._session.get(
