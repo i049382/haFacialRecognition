@@ -60,11 +60,13 @@ def main():
                 'bind': f'0.0.0.0:{config.api_port}',
                 'workers': 1,
                 'worker_class': 'sync',
-                'timeout': 30,
-                'keepalive': 5,
+                'timeout': 120,  # Increased timeout to 120 seconds
+                'keepalive': 30,  # Increased keepalive to 30 seconds
+                'graceful_timeout': 30,
                 'accesslog': '-',
                 'errorlog': '-',
                 'loglevel': 'info',
+                'preload_app': False,  # Don't preload app to avoid initialization issues
             }
             
             logger.info(f"Starting Gunicorn server on 0.0.0.0:{config.api_port}")

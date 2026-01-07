@@ -27,15 +27,19 @@ class FaceRecognitionAPI:
         
     def _register_routes(self):
         """Register API routes."""
+        logger.info("Registering API routes...")
         
         @self.app.route('/status', methods=['GET'])
         def get_status():
             """Get add-on status."""
-            return jsonify({
+            logger.info("GET /status endpoint called")
+            response = {
                 "status": "ready",
                 "version": "0.0.1",
                 "chunk": "3"
-            }), 200
+            }
+            logger.info(f"Returning status response: {response}")
+            return jsonify(response), 200
         
         @self.app.route('/event', methods=['POST'])
         def post_event():
@@ -118,6 +122,8 @@ class FaceRecognitionAPI:
             """Handle 500 errors."""
             logger.exception("Internal server error")
             return jsonify({"error": "Internal server error"}), 500
+        
+        logger.info("API routes registered successfully")
     
     def run(self, host='0.0.0.0', port=None, debug=False, threaded=True, use_reloader=False):
         """Run the Flask server.
