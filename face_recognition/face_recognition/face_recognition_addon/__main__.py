@@ -67,6 +67,12 @@ def main():
                 'errorlog': '-',
                 'loglevel': 'info',
                 'preload_app': False,  # Don't preload app to avoid initialization issues
+                'limit_request_line': 4094,  # Default limit for request line
+                'limit_request_fields': 100,  # Default limit for request headers
+                'limit_request_field_size': 8190,  # Default limit for header size
+                'max_requests': 0,  # No limit on requests per worker
+                'max_requests_jitter': 0,  # No jitter
+                'worker_connections': 1000,  # Allow more concurrent connections
             }
             
             logger.info(f"Starting Gunicorn server on 0.0.0.0:{config.api_port}")

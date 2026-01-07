@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from homeassistant.core import HomeAssistant, Event, callback
 from homeassistant.helpers import aiohttp_client as aiohttp_helper
+import aiohttp
 
 from .events import DOMAIN, EVENT_DETECTED
 
@@ -524,14 +525,16 @@ class NestEventListener:
                 "timestamp": timestamp,
             }
             
-            headers = {}
+            headers = {
+                "Content-Type": "application/json"
+            }
             if self.api_token:
                 headers["Authorization"] = f"Bearer {self.api_token}"
             
             _LOGGER.error(f"Sending Nest event to add-on at: {self.api_url}/event")
             _LOGGER.error(f"Payload keys: {list(payload.keys())}")
             _LOGGER.error(f"Payload: {payload}")
-            _LOGGER.error(f"Headers: {headers if headers else 'None'}")
+            _LOGGER.error(f"Headers: {headers}")
             
             # Make sure we're using the correct session
             if not self._session:
@@ -540,24 +543,37 @@ class NestEventListener:
             
             try:
                 _LOGGER.error(f"Making POST request to {self.api_url}/event")
+                _LOGGER.error(f"Request URL: {self.api_url}/event")
+                _LOGGER.error(f"Request headers: {headers}")
+                _LOGGER.error(f"Payload size: {len(str(payload))} bytes")
+                
+                # Use allow_redirects=False and ensure proper connection handling
+                connector = aiohttp.TCPConnector(limit=10, limit_per_host=5)
+                timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30)
+                
                 async with self._session.post(
                     f"{self.api_url}/event",
                     json=payload,
-                    headers=headers if headers else None,
-                    timeout=30  # Longer timeout for Flask dev server
+                    headers=headers,
+                    timeout=timeout,
+                    allow_redirects=False
                 ) as response:
+                    _LOGGER.info(f"Response status: {response.status}")
+                    _LOGGER.info(f"Response headers: {dict(response.headers)}")
+                    
                     if response.status == 200:
                         response_data = await response.json()
                         _LOGGER.info(f"Successfully sent Nest event to add-on: {response_data}")
                     else:
                         response_text = await response.text()
                         _LOGGER.error(f"Failed to send event to add-on: {response.status} - {response_text[:200]}")
-                    
-        except asyncio.TimeoutError:
-            _LOGGER.error(f"Timeout connecting to add-on at {self.api_url}/event - is the add-on running?")
-        except ConnectionError as e:
-            _LOGGER.error(f"Connection error to add-on at {self.api_url}/event: {e}")
-            _LOGGER.error("Check if add-on is running and port is correct (default: 8080)")
+            except asyncio.TimeoutError:
+                _LOGGER.error(f"Timeout connecting to add-on at {self.api_url}/event - is the add-on running?")
+            except ConnectionError as e:
+                _LOGGER.error(f"Connection error to add-on at {self.api_url}/event: {e}")
+                _LOGGER.error("Check if add-on is running and port is correct (default: 8080)")
+            except Exception as e:
+                _LOGGER.exception(f"Error sending event to add-on at {self.api_url}/event: {e}")
         except Exception as e:
-            _LOGGER.exception(f"Error sending event to add-on at {self.api_url}/event: {e}")
+            _LOGGER.exception(f"Unexpected error in _send_to_addon: {e}")
 

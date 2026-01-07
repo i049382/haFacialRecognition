@@ -29,6 +29,14 @@ class FaceRecognitionAPI:
         """Register API routes."""
         logger.info("Registering API routes...")
         
+        # Add before_request hook to log all incoming requests
+        @self.app.before_request
+        def log_request_info():
+            logger.info(f"Incoming request: {request.method} {request.path}")
+            logger.info(f"Request headers: {dict(request.headers)}")
+            logger.info(f"Content-Type: {request.content_type}")
+            logger.info(f"Content-Length: {request.content_length}")
+        
         @self.app.route('/status', methods=['GET'])
         def get_status():
             """Get add-on status."""
@@ -46,6 +54,9 @@ class FaceRecognitionAPI:
             """Receive recognition event from add-on processing."""
             try:
                 logger.info("POST /event received")
+                logger.info(f"Request headers: {dict(request.headers)}")
+                logger.info(f"Content-Type: {request.content_type}")
+                logger.info(f"Content-Length: {request.content_length}")
                 
                 # Check authentication if token is configured
                 if self.config.api_token:
@@ -63,7 +74,8 @@ class FaceRecognitionAPI:
                 
                 # Validate request body
                 if not request.is_json:
-                    logger.warning("Request is not JSON")
+                    logger.warning(f"Request is not JSON. Content-Type: {request.content_type}")
+                    logger.warning(f"Request data (first 500 chars): {request.data[:500] if request.data else 'None'}")
                     return jsonify({"error": "Request must be JSON"}), 400
                 
                 data = request.get_json()
