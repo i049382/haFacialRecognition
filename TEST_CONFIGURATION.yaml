@@ -1,0 +1,24 @@
+# Example configuration.yaml for Face Recognition Integration
+# This file should be placed in your Home Assistant /config/ directory
+# NOT inside the integration folder!
+
+face_recognition:
+  # Add-on API connection
+  api_host: "localhost"      # Add-on runs on same host
+  api_port: 8080             # Default add-on port
+  api_token: ""              # Optional: Add-on API token if configured
+
+  # REQUIRED: Home Assistant API token for internal API calls
+  # Generate this in HA: Profile → Long-lived access tokens → Create token
+  ha_api_token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL2F1dGguZXhhbXBsZS5jb20iLCJpYXQiOjE3MzgwNjQwMDAsImV4cCI6MTczODA2NzYwMCwiYXVkIjoiZmFjZV9yZWNvZ25pdGlvbiIsInN1YiI6InVzZXJAZXhhbXBsZS5jb20ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+
+# Important notes:
+# 1. This file goes in /config/configuration.yaml (main HA config)
+# 2. NOT in custom_components/face_recognition/configuration.yaml
+# 3. After editing, restart Home Assistant (not just reload)
+# 4. Check logs for "HA API token configured for internal API calls"
+
+# To test if configuration is being read:
+# 1. Restart HA
+# 2. Check logs for "=== DEBUG: Integration config from YAML ==="
+# 3. You should see your ha_api_token in the logs (masked)

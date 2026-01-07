@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+import json
 from pathlib import Path
 from typing import Dict, Any, Optional
 from homeassistant.core import HomeAssistant, Event, callback
@@ -102,13 +103,24 @@ class NestEventListener:
             return
         
         _LOGGER.error(f"Processing Nest event: type={event_type}, device={device_id}, nest_event_id={nest_event_id}")
-        
-        # Skip API thumbnail fetch - Nest thumbnails expire too quickly
-        # Go straight to filesystem extraction from MP4 videos (reliable and always works)
-        # Filesystem structure: /config/nest/event_media/<device_id>/<timestamp>-camera_person.mp4
-        _LOGGER.info("Extracting frame from Nest video filesystem (skipping API thumbnail fetch)")
-        image_data = await self._fetch_nest_image_from_filesystem_by_timestamp(device_id, event_data)
-        
+
+        # Try API thumbnail fetch first (fastest if it works)
+        # Get image URL from attachment data
+        attachment = event_data.get("attachment", {})
+        image_url = attachment.get("image")
+
+        image_data = None
+
+        if image_url:
+            _LOGGER.info(f"Trying API thumbnail fetch: {image_url}")
+            image_data = await self._fetch_nest_image_from_api(image_url)
+
+        # If API fetch failed or no image URL, fallback to filesystem
+        if not image_data:
+            _LOGGER.info("API fetch failed or no image URL, trying filesystem extraction")
+            _LOGGER.info("Filesystem structure: /config/nest/event_media/<device_id>/<timestamp>-camera_person.mp4")
+            image_data = await self._fetch_nest_image_from_filesystem_by_timestamp(device_id, event_data)
+
         if image_data:
             # Send to add-on for processing
             await self._send_to_addon(event_data, image_data)
@@ -164,6 +176,9 @@ class NestEventListener:
                     image_data = await response.read()
                     _LOGGER.error(f"Successfully fetched Nest image via API ({len(image_data)} bytes)")
                     return image_data
+                elif response.status == 401:
+                    _LOGGER.warning(f"Authentication failed (401) - check HA API token configuration")
+                    return None
                 elif response.status == 404:
                     _LOGGER.warning(f"Nest media expired or not found (404)")
                     return None
@@ -534,10 +549,16 @@ class NestEventListener:
                 # Use explicit timeout and ensure proper connection handling
                 timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30, sock_connect=10)
                 
+                # Send request - use data=json.dumps() instead of json= to ensure proper encoding
+                # This can help with gunicorn compatibility
+                json_data = json.dumps(payload)
+                
+                _LOGGER.info(f"Sending POST request with {len(json_data)} bytes of JSON data")
+                
                 # Send request and handle response separately to catch connection issues
                 response = await self._session.post(
                     f"{self.api_url}/event",
-                    json=payload,
+                    data=json_data,  # Use data= instead of json= for better compatibility
                     headers=headers,
                     timeout=timeout,
                     allow_redirects=False

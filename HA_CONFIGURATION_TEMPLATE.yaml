@@ -1,0 +1,77 @@
+# Home Assistant Configuration for Face Recognition Integration
+# Copy the 'face_recognition:' section below into your /config/configuration.yaml
+# DO NOT replace your entire configuration.yaml - just add this section!
+
+# ============================================
+# ADD THIS SECTION TO YOUR configuration.yaml
+# ============================================
+face_recognition:
+  # Add-on API configuration
+  api_host: "localhost"          # Hostname or IP of the add-on (usually localhost)
+  api_port: 8080                 # Port the add-on API is running on (default: 8080)
+
+  # Optional: Add-on API authentication token
+  # If you configure api_token in the add-on settings, use it here
+  api_token: ""                  # Leave empty if add-on has no authentication
+
+  # REQUIRED: Home Assistant Long-Lived Access Token
+  # Get this from: Your HA Profile → Long-Lived Access Tokens → Create Token
+  # Name it "Face Recognition Integration"
+  # COPY YOUR ACTUAL TOKEN HERE (replace the example below):
+  ha_api_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjNTg3ZTVhYWQ1NTM0Y2U2YTAzZmUzNDk2NDQ5ZDczMiIsImlhdCI6MTc2Nzc4MjU5MSwiZXhwIjoyMDgzMTQyNTkxfQ.wd-28qDCW0cr-U7CGrM6cIIP-hB0C8eKfmGumybePlI"
+# ============================================
+
+# IMPORTANT INSTRUCTIONS:
+# 1. Open your Home Assistant /config/configuration.yaml file
+# 2. Add the 'face_recognition:' section above (with proper indentation)
+# 3. Replace the example ha_api_token with YOUR actual token
+# 4. Save the file
+# 5. Restart Home Assistant (full restart, not reload)
+
+# Example of how it should look in your configuration.yaml:
+"""
+# Your existing configuration...
+homeassistant:
+  name: My Home
+  latitude: 51.5074
+  longitude: -0.1278
+  elevation: 0
+  unit_system: metric
+  time_zone: Europe/London
+
+# Other integrations...
+light:
+  - platform: hue
+
+# ADD THE FACE RECOGNITION SECTION HERE:
+face_recognition:
+  api_host: "localhost"
+  api_port: 8080
+  api_token: ""
+  ha_api_token: "YOUR_ACTUAL_TOKEN_HERE"
+
+# More configurations...
+automation: !include automations.yaml
+script: !include scripts.yaml
+"""
+
+# YAML FORMATTING RULES:
+# - Use 2 spaces for indentation (NO tabs)
+# - The 'face_recognition:' line should have NO indentation (start of line)
+# - The nested keys (api_host, api_port, etc.) should have 2 spaces indentation
+# - Strings with colons (like "localhost:8080") should be quoted
+
+# TO GET YOUR HA API TOKEN:
+# 1. In Home Assistant, click your profile picture (bottom left)
+# 2. Scroll down to "Long-lived access tokens"
+# 3. Click "Create token"
+# 4. Name it "Face Recognition Integration"
+# 5. COPY THE TOKEN (it only shows once!)
+# 6. Paste it in the ha_api_token field above
+
+# AFTER UPDATING:
+# 1. Restart Home Assistant
+# 2. Check logs for:
+#    - "HA API token configured for internal API calls"
+#    - "HA API token length: [number greater than 0]"
+# 3. If you see "No HA API token configured", check YAML indentation

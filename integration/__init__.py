@@ -16,16 +16,21 @@ __version__ = "0.0.1"
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Face Recognition integration.
-    
+
     Args:
         hass: Home Assistant instance
         config: Configuration dictionary
-        
+
     Returns:
         True if setup successful
     """
     _LOGGER.error("=== FACE RECOGNITION INTEGRATION LOADING (CHUNK 3) ===")
     _LOGGER.info("Face Recognition integration loading (Chunk 3)")
+
+    # Debug: Show what config we received
+    _LOGGER.error(f"=== DEBUG: Full config received ===")
+    _LOGGER.error(f"Config keys: {list(config.keys())}")
+    _LOGGER.error(f"Face recognition config in config: {DOMAIN in config}")
     
     try:
         # Set up services
@@ -45,15 +50,22 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         async def start_nest_listener():
             """Start Nest listener."""
             from .nest_listener import NestEventListener
-            
+
             integration_config = config.get(DOMAIN, {})
+            _LOGGER.error(f"=== DEBUG: Integration config from YAML ===")
+            _LOGGER.error(f"Config keys: {list(integration_config.keys())}")
+            _LOGGER.error(f"Full config: {integration_config}")
+
             api_host = integration_config.get("api_host", "localhost")
             api_port = integration_config.get("api_port", 8080)  # Default matches add-on port (8080)
             api_token = integration_config.get("api_token", "")
             ha_api_token = integration_config.get("ha_api_token", "")  # HA API token for internal API calls
             api_url = f"http://{api_host}:{api_port}"
-            
+
             _LOGGER.error(f"Connecting to add-on API at {api_url}")
+            _LOGGER.error(f"HA API token present: {'ha_api_token' in integration_config}")
+            _LOGGER.error(f"HA API token length: {len(ha_api_token) if ha_api_token else 0}")
+
             if ha_api_token:
                 _LOGGER.error("HA API token configured for internal API calls")
             else:

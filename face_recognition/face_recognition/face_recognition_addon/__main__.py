@@ -65,14 +65,17 @@ def main():
                 'graceful_timeout': 30,
                 'accesslog': '-',
                 'errorlog': '-',
-                'loglevel': 'info',
+                'loglevel': 'debug',  # Increased to debug to see POST requests
+                'capture_output': True,  # Capture stdout/stderr
                 'preload_app': False,  # Don't preload app to avoid initialization issues
                 'limit_request_line': 4094,  # Default limit for request line
                 'limit_request_fields': 100,  # Default limit for request headers
                 'limit_request_field_size': 8190,  # Default limit for header size
+                'limit_request_body': 10485760,  # 10MB limit for request body (POST requests)
                 'max_requests': 0,  # No limit on requests per worker
                 'max_requests_jitter': 0,  # No jitter
                 'worker_connections': 1000,  # Allow more concurrent connections
+                'forwarded_allow_ips': '*',  # Allow forwarded headers (for HA proxy)
             }
             
             logger.info(f"Starting Gunicorn server on 0.0.0.0:{config.api_port}")

@@ -1,0 +1,8 @@
+# Copy ONLY the lines below into your /config/configuration.yaml
+# Add this section to your existing configuration
+
+face_recognition:
+  api_host: "localhost"
+  api_port: 8080
+  api_token: ""
+  ha_api_token: "PASTE_YOUR_HA_TOKEN_HERE"
