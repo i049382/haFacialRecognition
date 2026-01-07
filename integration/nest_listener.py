@@ -530,21 +530,28 @@ class NestEventListener:
             
             _LOGGER.error(f"Sending Nest event to add-on at: {self.api_url}/event")
             _LOGGER.error(f"Payload keys: {list(payload.keys())}")
-            _LOGGER.error(f"Payload size: {len(str(payload))} bytes")
-            _LOGGER.error(f"Headers: {headers}")
+            _LOGGER.error(f"Payload: {payload}")
+            _LOGGER.error(f"Headers: {headers if headers else 'None'}")
+            
+            # Make sure we're using the correct session
+            if not self._session:
+                _LOGGER.error("Session not initialized!")
+                return
             
             try:
+                _LOGGER.error(f"Making POST request to {self.api_url}/event")
                 async with self._session.post(
                     f"{self.api_url}/event",
                     json=payload,
                     headers=headers if headers else None,
-                    timeout=10  # Increased timeout
+                    timeout=30  # Longer timeout for Flask dev server
                 ) as response:
-                if response.status == 200:
-                    _LOGGER.info(f"Successfully sent Nest event to add-on")
-                else:
-                    response_text = await response.text()
-                    _LOGGER.error(f"Failed to send event to add-on: {response.status} - {response_text[:200]}")
+                    if response.status == 200:
+                        response_data = await response.json()
+                        _LOGGER.info(f"Successfully sent Nest event to add-on: {response_data}")
+                    else:
+                        response_text = await response.text()
+                        _LOGGER.error(f"Failed to send event to add-on: {response.status} - {response_text[:200]}")
                     
         except asyncio.TimeoutError:
             _LOGGER.error(f"Timeout connecting to add-on at {self.api_url}/event - is the add-on running?")

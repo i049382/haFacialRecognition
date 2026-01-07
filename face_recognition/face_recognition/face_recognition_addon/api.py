@@ -129,5 +129,8 @@ class FaceRecognitionAPI:
         """
         port = port or self.config.api_port
         logger.info(f"Starting HTTP API server on {host}:{port}")
-        self.app.run(host=host, port=port, debug=debug, threaded=True)
+        # Use threaded=True and increase request timeout
+        # Also set max_content_length to handle larger payloads
+        self.app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
+        self.app.run(host=host, port=port, debug=debug, threaded=True, use_reloader=False)
 

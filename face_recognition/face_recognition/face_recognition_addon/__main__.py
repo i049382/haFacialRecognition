@@ -33,11 +33,14 @@ def main():
         api = FaceRecognitionAPI(config)
         logger.info(f"HTTP API server starting on port {config.api_port}")
         
-        # Use gunicorn for production WSGI server (better than Flask dev server)
-        # Flask dev server has issues with POST requests and can disconnect
+        # Try to use gunicorn first (production WSGI server)
+        # Falls back to Flask dev server if gunicorn fails
+        logger.info("Checking for Gunicorn availability...")
+        use_gunicorn = False
         try:
             import gunicorn.app.base
-            import multiprocessing
+            logger.info("Gunicorn found! Attempting to start...")
+            use_gunicorn = True
             
             class StandaloneApplication(gunicorn.app.base.BaseApplication):
                 def __init__(self, app, options=None):
@@ -55,26 +58,37 @@ def main():
             # Gunicorn options
             options = {
                 'bind': f'0.0.0.0:{config.api_port}',
-                'workers': 1,  # Single worker for add-on
+                'workers': 1,
                 'worker_class': 'sync',
                 'timeout': 30,
                 'keepalive': 5,
-                'accesslog': '-',  # Log to stdout
-                'errorlog': '-',   # Log to stderr
+                'accesslog': '-',
+                'errorlog': '-',
                 'loglevel': 'info',
             }
             
             logger.info(f"Starting Gunicorn server on 0.0.0.0:{config.api_port}")
             StandaloneApplication(api, options).run()
+            use_gunicorn = False  # Should never reach here
             
-        except ImportError:
-            # Fallback to Flask dev server if gunicorn not available
-            logger.warning("Gunicorn not available, using Flask dev server (not recommended)")
-            logger.info(f"Starting Flask server on 0.0.0.0:{config.api_port}")
-            api.run(host='0.0.0.0', port=config.api_port, debug=False, threaded=True)
-        except KeyboardInterrupt:
-            logger.info("Shutting down...")
-            return 0
+        except ImportError as e:
+            logger.warning(f"Gunicorn not available: {e}")
+            logger.warning("Falling back to Flask dev server")
+            use_gunicorn = False
+        except Exception as e:
+            logger.error(f"Error starting Gunicorn: {e}")
+            logger.exception("Falling back to Flask dev server")
+            use_gunicorn = False
+        
+        # Fallback to Flask dev server
+        if not use_gunicorn:
+            try:
+                logger.info(f"Starting Flask dev server on 0.0.0.0:{config.api_port}")
+                logger.warning("Flask dev server is not production-ready - POST requests may disconnect")
+                api.run(host='0.0.0.0', port=config.api_port, debug=False, threaded=True, use_reloader=False)
+            except KeyboardInterrupt:
+                logger.info("Shutting down...")
+                return 0
         
     except FileNotFoundError as e:
         logger.error(f"Configuration error: {e}")
