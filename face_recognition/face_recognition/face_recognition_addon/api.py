@@ -119,18 +119,20 @@ class FaceRecognitionAPI:
             logger.exception("Internal server error")
             return jsonify({"error": "Internal server error"}), 500
     
-    def run(self, host='0.0.0.0', port=None, debug=False):
+    def run(self, host='0.0.0.0', port=None, debug=False, threaded=True, use_reloader=False):
         """Run the Flask server.
         
         Args:
             host: Host to bind to
             port: Port to bind to (uses config.api_port if None)
             debug: Enable debug mode
+            threaded: Enable threading
+            use_reloader: Enable auto-reload (disabled in add-on environment)
         """
         port = port or self.config.api_port
         logger.info(f"Starting HTTP API server on {host}:{port}")
         # Use threaded=True and increase request timeout
         # Also set max_content_length to handle larger payloads
         self.app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
-        self.app.run(host=host, port=port, debug=debug, threaded=True, use_reloader=False)
+        self.app.run(host=host, port=port, debug=debug, threaded=threaded, use_reloader=use_reloader)
 
