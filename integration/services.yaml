@@ -30,3 +30,31 @@ fire_event:
       selector:
         text:
 
+fire_nest_event:
+  name: Fire Nest Event
+  description: Manually fire a dummy nest_event for testing Nest event ingestion and video frame extraction
+  fields:
+    device_id:
+      name: Device ID
+      description: Nest device ID (hexadecimal string). Default uses device from your screenshots.
+      required: false
+      default: "65563380bfcf5478f63ff88485eca57"
+      selector:
+        text:
+    nest_event_id:
+      name: Nest Event ID
+      description: Nest event ID. If not provided, uses current timestamp. Use an existing event ID from your nest/event_media folder to test with real video files.
+      required: false
+      selector:
+        text:
+    event_type:
+      name: Event Type
+      description: Type of Nest event (camera_person or camera_motion)
+      required: false
+      default: "camera_person"
+      selector:
+        select:
+          options:
+            - camera_person
+            - camera_motion
+

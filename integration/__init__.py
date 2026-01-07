@@ -48,13 +48,18 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             
             integration_config = config.get(DOMAIN, {})
             api_host = integration_config.get("api_host", "localhost")
-            api_port = integration_config.get("api_port", 8180)  # Default matches add-on port
+            api_port = integration_config.get("api_port", 8080)  # Default matches add-on port (8080)
             api_token = integration_config.get("api_token", "")
+            ha_api_token = integration_config.get("ha_api_token", "")  # HA API token for internal API calls
             api_url = f"http://{api_host}:{api_port}"
             
             _LOGGER.error(f"Connecting to add-on API at {api_url}")
+            if ha_api_token:
+                _LOGGER.error("HA API token configured for internal API calls")
+            else:
+                _LOGGER.warning("No HA API token configured - Nest image fetching may fail")
             
-            nest_listener = NestEventListener(hass, api_url, api_token)
+            nest_listener = NestEventListener(hass, api_url, api_token, ha_api_token)
             await nest_listener.async_start()
             
             hass.data.setdefault(DOMAIN, {})["nest_listener"] = nest_listener

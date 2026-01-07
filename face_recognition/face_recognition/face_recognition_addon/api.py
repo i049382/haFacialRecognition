@@ -40,54 +40,73 @@ class FaceRecognitionAPI:
         @self.app.route('/event', methods=['POST'])
         def post_event():
             """Receive recognition event from add-on processing."""
-            # Check authentication if token is configured
-            if self.config.api_token:
-                auth_header = request.headers.get('Authorization', '')
-                if not auth_header.startswith('Bearer '):
-                    return jsonify({"error": "Missing or invalid Authorization header"}), 401
+            try:
+                logger.info("POST /event received")
                 
-                token = auth_header.replace('Bearer ', '')
-                if token != self.config.api_token:
-                    return jsonify({"error": "Invalid API token"}), 401
-            
-            # Validate request body
-            if not request.is_json:
-                return jsonify({"error": "Request must be JSON"}), 400
-            
-            data = request.get_json()
-            
-            # Check if this is a Nest ingestion event or recognition event
-            if data.get('event_type') == 'nest_event':
-                # Nest ingestion event (Chunk 3)
-                logger.info(f"Nest event received: {data.get('event_type_nest')} on device {data.get('device_id')}")
+                # Check authentication if token is configured
+                if self.config.api_token:
+                    auth_header = request.headers.get('Authorization', '')
+                    if not auth_header.startswith('Bearer '):
+                        logger.warning("Missing or invalid Authorization header")
+                        return jsonify({"error": "Missing or invalid Authorization header"}), 401
+                    
+                    token = auth_header.replace('Bearer ', '')
+                    if token != self.config.api_token:
+                        logger.warning("Invalid API token")
+                        return jsonify({"error": "Invalid API token"}), 401
+                else:
+                    logger.debug("No API token configured, skipping authentication")
                 
-                # For Chunk 3, just log the event
-                # In later chunks, we'll process the image for face recognition
-                logger.info(f"Image size: {data.get('image_size', 0)} bytes")
+                # Validate request body
+                if not request.is_json:
+                    logger.warning("Request is not JSON")
+                    return jsonify({"error": "Request must be JSON"}), 400
                 
-                return jsonify({"status": "received", "type": "nest_ingestion"}), 200
-            else:
-                # Recognition event (Chunk 2+)
-                # Validate required fields
-                required_fields = ['person_id', 'display_name', 'confidence', 'camera']
-                missing_fields = [field for field in required_fields if field not in data]
-                if missing_fields:
-                    return jsonify({
-                        "error": "Missing required fields",
-                        "missing": missing_fields
-                    }), 400
+                data = request.get_json()
+                logger.info(f"Received event data: {list(data.keys()) if data else 'None'}")
                 
-                # Log event received
-                logger.info(f"Recognition event received: {data.get('person_id')} detected on {data.get('camera')}")
-                
-                # Call callback if provided (for future use)
-                if self.event_callback:
-                    try:
-                        self.event_callback(data)
-                    except Exception as e:
-                        logger.error(f"Error in event callback: {e}")
-                
-                return jsonify({"status": "received", "type": "recognition"}), 200
+                # Check if this is a Nest ingestion event or recognition event
+                if data.get('event_type') == 'nest_event':
+                    # Nest ingestion event (Chunk 3)
+                    logger.info(f"Nest event received: {data.get('event_type_nest')} on device {data.get('device_id')}")
+                    
+                    # For Chunk 3, just log the event
+                    # In later chunks, we'll process the image for face recognition
+                    image_size = data.get('image_size', 0)
+                    logger.info(f"Image size: {image_size} bytes")
+                    
+                    response = jsonify({"status": "received", "type": "nest_ingestion"})
+                    logger.info("Sending response for Nest event")
+                    return response, 200
+                else:
+                    # Recognition event (Chunk 2+)
+                    # Validate required fields
+                    required_fields = ['person_id', 'display_name', 'confidence', 'camera']
+                    missing_fields = [field for field in required_fields if field not in data]
+                    if missing_fields:
+                        logger.warning(f"Missing required fields: {missing_fields}")
+                        return jsonify({
+                            "error": "Missing required fields",
+                            "missing": missing_fields
+                        }), 400
+                    
+                    # Log event received
+                    logger.info(f"Recognition event received: {data.get('person_id')} detected on {data.get('camera')}")
+                    
+                    # Call callback if provided (for future use)
+                    if self.event_callback:
+                        try:
+                            self.event_callback(data)
+                        except Exception as e:
+                            logger.error(f"Error in event callback: {e}")
+                    
+                    response = jsonify({"status": "received", "type": "recognition"})
+                    logger.info("Sending response for recognition event")
+                    return response, 200
+                    
+            except Exception as e:
+                logger.exception(f"Error processing /event request: {e}")
+                return jsonify({"error": "Internal server error", "message": str(e)}), 500
         
         @self.app.errorhandler(404)
         def not_found(error):
