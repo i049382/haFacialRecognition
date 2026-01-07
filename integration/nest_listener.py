@@ -103,27 +103,11 @@ class NestEventListener:
         
         _LOGGER.error(f"Processing Nest event: type={event_type}, device={device_id}, nest_event_id={nest_event_id}")
         
-        # Try to fetch image via Nest API first (if attachment.image URL is available)
-        # This is the most reliable method and works immediately
-        # The API endpoint is: /api/nest/event_media/<device_id>/<encoded_event_id>/thumbnail
-        attachment = event_data.get("attachment", {})
-        image_url = attachment.get("image")
-        
-        if image_url:
-            _LOGGER.error(f"Found attachment.image URL: {image_url}")
-            # Try API fetch first (requires authentication)
-            image_data = await self._fetch_nest_image_from_api(image_url)
-            if image_data:
-                _LOGGER.info("Successfully fetched image via Nest API")
-            else:
-                _LOGGER.warning("API fetch failed, trying filesystem fallback by timestamp")
-                # Fallback to filesystem - match by timestamp
-                # Filesystem structure: /config/nest/event_media/<device_id>/<timestamp>-camera_person.mp4
-                image_data = await self._fetch_nest_image_from_filesystem_by_timestamp(device_id, event_data)
-        else:
-            _LOGGER.warning("No attachment.image URL found, using filesystem by timestamp")
-            # No API URL, use filesystem directly - match by timestamp
-            image_data = await self._fetch_nest_image_from_filesystem_by_timestamp(device_id, event_data)
+        # Skip API thumbnail fetch - Nest thumbnails expire too quickly
+        # Go straight to filesystem extraction from MP4 videos (reliable and always works)
+        # Filesystem structure: /config/nest/event_media/<device_id>/<timestamp>-camera_person.mp4
+        _LOGGER.info("Extracting frame from Nest video filesystem (skipping API thumbnail fetch)")
+        image_data = await self._fetch_nest_image_from_filesystem_by_timestamp(device_id, event_data)
         
         if image_data:
             # Send to add-on for processing
@@ -547,20 +531,22 @@ class NestEventListener:
                 _LOGGER.error(f"Request headers: {headers}")
                 _LOGGER.error(f"Payload size: {len(str(payload))} bytes")
                 
-                # Use allow_redirects=False and ensure proper connection handling
-                connector = aiohttp.TCPConnector(limit=10, limit_per_host=5)
-                timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30)
+                # Use explicit timeout and ensure proper connection handling
+                timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30, sock_connect=10)
                 
-                async with self._session.post(
+                # Send request and handle response separately to catch connection issues
+                response = await self._session.post(
                     f"{self.api_url}/event",
                     json=payload,
                     headers=headers,
                     timeout=timeout,
                     allow_redirects=False
-                ) as response:
-                    _LOGGER.info(f"Response status: {response.status}")
-                    _LOGGER.info(f"Response headers: {dict(response.headers)}")
-                    
+                )
+                
+                _LOGGER.info(f"Response received: status={response.status}")
+                _LOGGER.info(f"Response headers: {dict(response.headers)}")
+                
+                async with response:
                     if response.status == 200:
                         response_data = await response.json()
                         _LOGGER.info(f"Successfully sent Nest event to add-on: {response_data}")
