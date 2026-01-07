@@ -52,19 +52,54 @@ class FaceRecognitionAPI:
         @self.app.route('/event', methods=['POST'])
         def post_event():
             """Receive recognition event from add-on processing."""
+            # Outer try-except to catch ANY crash
             try:
+                # Log immediately when endpoint is called
+                logger.error("=" * 60)
+                logger.error("=== POST /event ENDPOINT CALLED ===")
+                logger.error(f"Remote address: {request.remote_addr}")
+                logger.error(f"Request method: {request.method}")
+                logger.error(f"Request path: {request.path}")
+                logger.error("=" * 60)
+
+                # Inner try-except for request processing
+                # Log basic request info
                 logger.info("POST /event received")
                 logger.info(f"Request headers: {dict(request.headers)}")
                 logger.info(f"Content-Type: {request.content_type}")
                 logger.info(f"Content-Length: {request.content_length}")
+
+                # Check if we have data
+                has_data = request.data is not None
+                logger.info(f"Request data available: {has_data}")
+                if has_data and request.data:
+                    data_len = len(request.data)
+                    logger.info(f"Request data length: {data_len} bytes")
+                    # Log first 200 chars of data for debugging
+                    if data_len > 0:
+                        try:
+                            data_preview = request.data[:200].decode('utf-8', errors='replace')
+                            logger.info(f"Request data preview: {data_preview}")
+                        except:
+                            logger.info("Could not decode request data preview")
                 
+                # Check if config object exists (might be None)
+                logger.info(f"Config object exists: {self.config is not None}")
+                if self.config is None:
+                    logger.error("CONFIG IS NONE! This will cause crashes.")
+                    # Return error but don't crash
+                    return jsonify({"error": "Configuration not loaded", "status": "config_error"}), 500
+
                 # Check authentication if token is configured
-                if self.config.api_token:
+                has_api_token = hasattr(self.config, 'api_token') and self.config.api_token
+                logger.info(f"API token configured: {has_api_token}")
+
+                if has_api_token:
                     auth_header = request.headers.get('Authorization', '')
                     if not auth_header.startswith('Bearer '):
                         logger.warning("Missing or invalid Authorization header")
                         return jsonify({"error": "Missing or invalid Authorization header"}), 401
-                    
+
                     token = auth_header.replace('Bearer ', '')
                     if token != self.config.api_token:
                         logger.warning("Invalid API token")
@@ -77,9 +112,20 @@ class FaceRecognitionAPI:
                     logger.warning(f"Request is not JSON. Content-Type: {request.content_type}")
                     logger.warning(f"Request data (first 500 chars): {request.data[:500] if request.data else 'None'}")
                     return jsonify({"error": "Request must be JSON"}), 400
-                
-                data = request.get_json()
-                logger.info(f"Received event data: {list(data.keys()) if data else 'None'}")
+
+                # Try to parse JSON with better error handling
+                try:
+                    data = request.get_json()
+                    if data is None:
+                        logger.error("Failed to parse JSON - request.get_json() returned None")
+                        logger.error(f"Request data: {request.data[:500] if request.data else 'None'}")
+                        return jsonify({"error": "Invalid JSON"}), 400
+
+                    logger.info(f"Received event data: {list(data.keys()) if data else 'None'}")
+                except Exception as json_error:
+                    logger.exception(f"Failed to parse JSON: {json_error}")
+                    logger.error(f"Request data (first 500 chars): {request.data[:500] if request.data else 'None'}")
+                    return jsonify({"error": "Invalid JSON format", "message": str(json_error)}), 400
                 
                 # Check if this is a Nest ingestion event or recognition event
                 if data.get('event_type') == 'nest_event':
@@ -123,17 +169,34 @@ class FaceRecognitionAPI:
             except Exception as e:
                 logger.exception(f"Error processing /event request: {e}")
                 return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+            except Exception as outer_e:
+                logger.exception(f"OUTER CATCH: Critical error in post_event: {outer_e}")
+                logger.exception("Full traceback:")
+                import traceback
+                logger.exception(traceback.format_exc())
+                return jsonify({"error": "Critical server error", "type": "outer_catch"}), 500
         
         @self.app.errorhandler(404)
         def not_found(error):
             """Handle 404 errors."""
             return jsonify({"error": "Not found"}), 404
-        
+
         @self.app.errorhandler(500)
         def internal_error(error):
             """Handle 500 errors."""
-            logger.exception("Internal server error")
+            logger.exception("=== INTERNAL SERVER ERROR ===")
+            logger.exception(f"Error: {error}")
             return jsonify({"error": "Internal server error"}), 500
+
+        # Catch-all exception handler
+        @self.app.errorhandler(Exception)
+        def handle_all_exceptions(error):
+            """Handle all uncaught exceptions."""
+            logger.exception("=== UNCAUGHT EXCEPTION ===")
+            logger.exception(f"Error type: {type(error).__name__}")
+            logger.exception(f"Error: {error}")
+            return jsonify({"error": "Internal server error", "type": type(error).__name__}), 500
         
         logger.info("API routes registered successfully")
     

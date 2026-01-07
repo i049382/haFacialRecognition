@@ -5,6 +5,7 @@ import asyncio
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
+from datetime import datetime
 from homeassistant.core import HomeAssistant, Event, callback
 from homeassistant.helpers import aiohttp_client as aiohttp_helper
 import aiohttp
@@ -104,22 +105,13 @@ class NestEventListener:
         
         _LOGGER.error(f"Processing Nest event: type={event_type}, device={device_id}, nest_event_id={nest_event_id}")
 
-        # Try API thumbnail fetch first (fastest if it works)
-        # Get image URL from attachment data
-        attachment = event_data.get("attachment", {})
-        image_url = attachment.get("image")
+        # SKIP API GIF fetch - MP4 videos are barely larger (185KB vs 134KB) but MUCH better quality
+        # Always use filesystem MP4 extraction for superior image quality
+        _LOGGER.info("Skipping GIF API fetch - using MP4 video for better quality")
+        _LOGGER.info(f"MP4 video: ~185KB, GIF thumbnail: ~134KB (only 51KB difference!)")
+        _LOGGER.info("Filesystem structure: /config/nest/event_media/<device_id>/<timestamp>-camera_person.mp4")
 
-        image_data = None
-
-        if image_url:
-            _LOGGER.info(f"Trying API thumbnail fetch: {image_url}")
-            image_data = await self._fetch_nest_image_from_api(image_url)
-
-        # If API fetch failed or no image URL, fallback to filesystem
-        if not image_data:
-            _LOGGER.info("API fetch failed or no image URL, trying filesystem extraction")
-            _LOGGER.info("Filesystem structure: /config/nest/event_media/<device_id>/<timestamp>-camera_person.mp4")
-            image_data = await self._fetch_nest_image_from_filesystem_by_timestamp(device_id, event_data)
+        image_data = await self._fetch_nest_image_from_filesystem_by_timestamp(device_id, event_data)
 
         if image_data:
             # Send to add-on for processing
@@ -338,14 +330,15 @@ class NestEventListener:
                 tmp_path = tmp_file.name
             
             try:
-                # Use ffmpeg to extract frame at 0.5 seconds
-                # Command: ffmpeg -i input.mp4 -ss 0.5 -vframes 1 -q:v 2 output.jpg
+                # Use ffmpeg to extract HIGH-QUALITY frame from MP4
+                # Much better than Nest's low-quality GIF conversion!
+                # Command: ffmpeg -i input.mp4 -ss 0.5 -vframes 1 -q:v 1 output.jpg
                 cmd = [
                     'ffmpeg',
                     '-i', str(video_path),
-                    '-ss', '0.5',  # Extract frame at 0.5 seconds (middle)
+                    '-ss', '0.5',  # Extract frame at 0.5 seconds (middle) - usually clearest
                     '-vframes', '1',  # Extract 1 frame
-                    '-q:v', '2',  # High quality JPEG (scale 2-31, lower is better)
+                    '-q:v', '1',  # HIGHEST quality JPEG (1-31, 1 is best, 2 is default high quality)
                     '-y',  # Overwrite output file
                     tmp_path
                 ]
@@ -576,11 +569,79 @@ class NestEventListener:
                         _LOGGER.error(f"Failed to send event to add-on: {response.status} - {response_text[:200]}")
             except asyncio.TimeoutError:
                 _LOGGER.error(f"Timeout connecting to add-on at {self.api_url}/event - is the add-on running?")
+                # Save image locally as fallback
+                await self._save_image_locally(event_data, image_data, "timeout")
             except ConnectionError as e:
                 _LOGGER.error(f"Connection error to add-on at {self.api_url}/event: {e}")
                 _LOGGER.error("Check if add-on is running and port is correct (default: 8080)")
+                # Save image locally as fallback
+                await self._save_image_locally(event_data, image_data, "connection_error")
             except Exception as e:
                 _LOGGER.exception(f"Error sending event to add-on at {self.api_url}/event: {e}")
+                # Save image locally as fallback
+                await self._save_image_locally(event_data, image_data, "exception")
         except Exception as e:
             _LOGGER.exception(f"Unexpected error in _send_to_addon: {e}")
+            # Try to save image locally as last resort
+            try:
+                await self._save_image_locally(event_data, image_data, "unexpected_error")
+            except:
+                pass
+
+    async def _save_image_locally(self, event_data: Dict[str, Any], image_data: bytes, error_type: str):
+        """Save image locally when add-on connection fails.
+
+        Args:
+            event_data: Nest event data
+            image_data: Image bytes
+            error_type: Type of error that occurred
+        """
+        try:
+            from pathlib import Path
+            import asyncio
+
+            # Create directory for saved images
+            config_dir = Path(self.hass.config.config_dir)
+            save_dir = config_dir / "face_recognition" / "saved_images"
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate filename
+            device_id = event_data.get("device_id", "unknown")
+            nest_event_id = event_data.get("nest_event_id", "unknown")
+            timestamp = event_data.get("timestamp")
+
+            if timestamp and hasattr(timestamp, 'timestamp'):
+                timestamp_str = str(int(timestamp.timestamp()))
+            else:
+                timestamp_str = "unknown_time"
+
+            filename = f"{timestamp_str}_{device_id}_{nest_event_id[:10]}_{error_type}.jpg"
+            filepath = save_dir / filename
+
+            # Save image
+            await asyncio.to_thread(filepath.write_bytes, image_data)
+
+            # Save metadata
+            metadata = {
+                "device_id": device_id,
+                "nest_event_id": nest_event_id,
+                "timestamp": str(timestamp) if timestamp else "unknown",
+                "error_type": error_type,
+                "image_size": len(image_data),
+                "saved_at": str(datetime.now().isoformat()),
+                "filepath": str(filepath)
+            }
+
+            import json
+            metadata_file = save_dir / f"{filename}.json"
+            await asyncio.to_thread(metadata_file.write_text, json.dumps(metadata, indent=2))
+
+            _LOGGER.error(f"Saved image locally due to {error_type}: {filepath}")
+            _LOGGER.error(f"Image size: {len(image_data)} bytes")
+            _LOGGER.error(f"Metadata saved: {metadata_file}")
+
+        except Exception as e:
+            _LOGGER.exception(f"Failed to save image locally: {e}")
+            # At least log that we got the image
+            _LOGGER.error(f"Got Nest image ({len(image_data)} bytes) but failed to save locally")
 
