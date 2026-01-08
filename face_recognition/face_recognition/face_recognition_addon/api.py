@@ -127,21 +127,61 @@ class FaceRecognitionAPI:
                     logger.error(f"Request data (first 500 chars): {request.data[:500] if request.data else 'None'}")
                     return jsonify({"error": "Invalid JSON format", "message": str(json_error)}), 400
                 
-                # Check if this is a Nest ingestion event or recognition event
-                if data.get('event_type') == 'nest_event':
+                # Check the event type and handle accordingly
+                event_type = data.get('event_type')
+
+                if event_type == 'nest_event':
                     # Nest ingestion event (Chunk 3)
                     logger.info(f"Nest event received: {data.get('event_type_nest')} on device {data.get('device_id')}")
-                    
+
                     # For Chunk 3, just log the event
                     # In later chunks, we'll process the image for face recognition
                     image_size = data.get('image_size', 0)
                     logger.info(f"Image size: {image_size} bytes")
-                    
+
                     response = jsonify({"status": "received", "type": "nest_ingestion"})
                     logger.info("Sending response for Nest event")
                     return response, 200
+
+                elif event_type == 'recognition_request':
+                    # Service-based recognition request
+                    logger.info(f"Recognition request received from source: {data.get('source', 'unknown')}")
+
+                    # Validate required fields for recognition request
+                    required_fields = ['image_data', 'camera']
+                    missing_fields = [field for field in required_fields if field not in data]
+                    if missing_fields:
+                        logger.warning(f"Missing required fields for recognition request: {missing_fields}")
+                        return jsonify({
+                            "error": "Missing required fields",
+                            "missing": missing_fields
+                        }), 400
+
+                    # Log request details
+                    image_size = data.get('image_size', 0)
+                    logger.info(f"Image size: {image_size} bytes, Camera: {data.get('camera')}")
+
+                    # TODO: In future chunks, process the image_data for face recognition
+                    # For now, just acknowledge receipt and simulate a response
+
+                    # Simulate face recognition results (for testing)
+                    # In Chunk 4+, this will be replaced with actual face recognition
+                    simulated_response = {
+                        "person_id": "unknown",
+                        "display_name": "Unknown Person",
+                        "confidence": 0.0,
+                        "needs_review": True,
+                        "face_count": 1,
+                        "processing_time_ms": 50,
+                        "status": "processed",
+                        "message": "Recognition request received (simulated response for testing)"
+                    }
+
+                    logger.info(f"Sending simulated recognition response: {simulated_response}")
+                    return jsonify(simulated_response), 200
+
                 else:
-                    # Recognition event (Chunk 2+)
+                    # Legacy recognition event (Chunk 2+)
                     # Validate required fields
                     required_fields = ['person_id', 'display_name', 'confidence', 'camera']
                     missing_fields = [field for field in required_fields if field not in data]
@@ -151,19 +191,19 @@ class FaceRecognitionAPI:
                             "error": "Missing required fields",
                             "missing": missing_fields
                         }), 400
-                    
+
                     # Log event received
-                    logger.info(f"Recognition event received: {data.get('person_id')} detected on {data.get('camera')}")
-                    
+                    logger.info(f"Legacy recognition event received: {data.get('person_id')} detected on {data.get('camera')}")
+
                     # Call callback if provided (for future use)
                     if self.event_callback:
                         try:
                             self.event_callback(data)
                         except Exception as e:
                             logger.error(f"Error in event callback: {e}")
-                    
+
                     response = jsonify({"status": "received", "type": "recognition"})
-                    logger.info("Sending response for recognition event")
+                    logger.info("Sending response for legacy recognition event")
                     return response, 200
                     
             except Exception as e:

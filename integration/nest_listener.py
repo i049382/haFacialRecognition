@@ -492,94 +492,100 @@ class NestEventListener:
     
     async def _send_to_addon(self, event_data: Dict[str, Any], image_data: bytes):
         """Send event and image to add-on for processing.
-        
+
         Args:
             event_data: Nest event data
             image_data: Image bytes
         """
         try:
-            # For Chunk 3, we'll send the event info
-            # In later chunks, we'll send the image for face recognition
             # Convert timestamp to string if it's a datetime object
             timestamp = event_data.get("timestamp")
             if timestamp and hasattr(timestamp, 'isoformat'):
                 timestamp = timestamp.isoformat()
             elif not timestamp:
                 timestamp = ""
-            
-            payload = {
-                "event_type": "nest_event",
-                "device_id": event_data.get("device_id"),
-                "event_id": event_data.get("nest_event_id"),  # Use nest_event_id
-                "event_type_nest": event_data.get("type"),
-                "camera": event_data.get("device_id"),  # Use device_id as camera identifier
-                "image_size": len(image_data),
+
+            # Use the new recognize_face service instead of direct API call
+            # This provides better error handling and flexibility
+            _LOGGER.error("=== USING NEW RECOGNIZE_FACE SERVICE ===")
+            _LOGGER.error(f"Image size: {len(image_data)} bytes")
+            _LOGGER.error(f"Event type: {event_data.get('type')}")
+            _LOGGER.error(f"Device ID: {event_data.get('device_id')}")
+
+            # Prepare service data
+            import base64
+            image_data_base64 = base64.b64encode(image_data).decode('utf-8')
+
+            service_data = {
+                "image_data": image_data_base64,
+                "camera": event_data.get("device_id", "nest_camera"),
+                "display_name": f"Nest Event: {event_data.get('type', 'unknown')}",
                 "timestamp": timestamp,
+                "source": "nest_listener",
+                "nest_event_id": event_data.get("nest_event_id"),
+                "event_type_nest": event_data.get("type")
             }
-            
-            headers = {
-                "Content-Type": "application/json"
-            }
-            if self.api_token:
-                headers["Authorization"] = f"Bearer {self.api_token}"
-            
-            _LOGGER.error(f"Sending Nest event to add-on at: {self.api_url}/event")
-            _LOGGER.error(f"Payload keys: {list(payload.keys())}")
-            _LOGGER.error(f"Payload: {payload}")
-            _LOGGER.error(f"Headers: {headers}")
-            
-            # Make sure we're using the correct session
-            if not self._session:
-                _LOGGER.error("Session not initialized!")
-                return
-            
+
+            _LOGGER.error(f"Calling face_recognition.recognize_face service")
+            _LOGGER.error(f"Service data keys: {list(service_data.keys())}")
+
+            # Call the service
             try:
-                _LOGGER.error(f"Making POST request to {self.api_url}/event")
-                _LOGGER.error(f"Request URL: {self.api_url}/event")
-                _LOGGER.error(f"Request headers: {headers}")
-                _LOGGER.error(f"Payload size: {len(str(payload))} bytes")
-                
-                # Use explicit timeout and ensure proper connection handling
-                timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30, sock_connect=10)
-                
-                # Send request - use data=json.dumps() instead of json= to ensure proper encoding
-                # This can help with gunicorn compatibility
-                json_data = json.dumps(payload)
-                
-                _LOGGER.info(f"Sending POST request with {len(json_data)} bytes of JSON data")
-                
-                # Send request and handle response separately to catch connection issues
-                response = await self._session.post(
-                    f"{self.api_url}/event",
-                    data=json_data,  # Use data= instead of json= for better compatibility
-                    headers=headers,
-                    timeout=timeout,
-                    allow_redirects=False
+                # Call the service and wait for response
+                result = await self.hass.services.async_call(
+                    "face_recognition",
+                    "recognize_face",
+                    service_data,
+                    blocking=True,
+                    return_response=True
                 )
-                
-                _LOGGER.info(f"Response received: status={response.status}")
-                _LOGGER.info(f"Response headers: {dict(response.headers)}")
-                
-                async with response:
-                    if response.status == 200:
-                        response_data = await response.json()
-                        _LOGGER.info(f"Successfully sent Nest event to add-on: {response_data}")
+
+                _LOGGER.error(f"Service call result: {result}")
+
+                # Check if service call was successful
+                if result and isinstance(result, dict):
+                    success = result.get("success", False)
+
+                    if success:
+                        _LOGGER.info(f"Face recognition service successful")
+                        _LOGGER.info(f"Person: {result.get('display_name')}")
+                        _LOGGER.info(f"Confidence: {result.get('confidence')}")
+                        _LOGGER.info(f"Face count: {result.get('face_count')}")
+
+                        # Fire event with recognition results
+                        recognition_event_data = {
+                            "person_id": result.get("person_id"),
+                            "display_name": result.get("display_name"),
+                            "confidence": result.get("confidence"),
+                            "camera": service_data.get("camera"),
+                            "image_id": event_data.get("nest_event_id", ""),
+                            "face_id": "",  # Will be populated in later chunks
+                            "timestamp": timestamp,
+                            "model_version": "v000",
+                            "needs_review": result.get("needs_review", True),
+                            "face_count": result.get("face_count", 0),
+                            "source": "nest_listener",
+                            "nest_event_id": event_data.get("nest_event_id")
+                        }
+
+                        _LOGGER.info(f"Firing recognition event: {recognition_event_data}")
+                        self.hass.bus.async_fire("face_recognition_detected", recognition_event_data)
+
                     else:
-                        response_text = await response.text()
-                        _LOGGER.error(f"Failed to send event to add-on: {response.status} - {response_text[:200]}")
-            except asyncio.TimeoutError:
-                _LOGGER.error(f"Timeout connecting to add-on at {self.api_url}/event - is the add-on running?")
+                        _LOGGER.warning(f"Face recognition service failed: {result.get('error', 'Unknown error')}")
+                        # Save image locally as fallback
+                        await self._save_image_locally(event_data, image_data, "service_failed")
+
+                else:
+                    _LOGGER.warning("Service call returned unexpected result")
+                    # Save image locally as fallback
+                    await self._save_image_locally(event_data, image_data, "unexpected_result")
+
+            except Exception as service_error:
+                _LOGGER.exception(f"Error calling recognize_face service: {service_error}")
                 # Save image locally as fallback
-                await self._save_image_locally(event_data, image_data, "timeout")
-            except ConnectionError as e:
-                _LOGGER.error(f"Connection error to add-on at {self.api_url}/event: {e}")
-                _LOGGER.error("Check if add-on is running and port is correct (default: 8080)")
-                # Save image locally as fallback
-                await self._save_image_locally(event_data, image_data, "connection_error")
-            except Exception as e:
-                _LOGGER.exception(f"Error sending event to add-on at {self.api_url}/event: {e}")
-                # Save image locally as fallback
-                await self._save_image_locally(event_data, image_data, "exception")
+                await self._save_image_locally(event_data, image_data, "service_exception")
+
         except Exception as e:
             _LOGGER.exception(f"Unexpected error in _send_to_addon: {e}")
             # Try to save image locally as last resort
