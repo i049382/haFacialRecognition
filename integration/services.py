@@ -1,10 +1,12 @@
 """Service definitions for face recognition integration."""
 
 from homeassistant.core import ServiceCall
+from homeassistant.helpers import config_validation as cv
 from datetime import datetime
 import logging
 import base64
 import aiohttp
+import voluptuous as vol
 from typing import Dict, Any, Optional
 
 from .events import DOMAIN, EVENT_DETECTED
@@ -31,60 +33,6 @@ async def async_setup_services(hass):
         _LOGGER.info(f"Service: Firing event {EVENT_DETECTED} with data: {event_data}")
         hass.bus.async_fire(EVENT_DETECTED, event_data)
     
-    async def fire_nest_event_service(call: ServiceCall):
-        """Service to manually fire a dummy Nest event for testing.
-        
-        This allows testing Nest event ingestion and video frame extraction
-        without waiting for an actual Nest event.
-        """
-        # Get parameters or use defaults based on typical Nest event structure
-        device_id = call.data.get("device_id", "65563380bfcf5478f63ff88485eca57")  # From your screenshots
-        nest_event_id = call.data.get("nest_event_id", None)
-        event_type = call.data.get("event_type", "camera_person")  # or "camera_motion"
-        
-        # Generate a nest_event_id if not provided (use current timestamp)
-        if not nest_event_id:
-            nest_event_id = str(int(datetime.now().timestamp()))
-        
-        # Create dummy Nest event data structure matching real Nest events
-        # Real Nest events include more fields - we'll include them for realism
-        # Note: We're reading from filesystem, so attachment.image isn't strictly needed,
-        # but including it makes the event structure match real events
-        now = datetime.now()
-        nest_event_data = {
-            "type": event_type,
-            "device_id": device_id,
-            "nest_event_id": nest_event_id,
-            "timestamp": now.isoformat(),
-            # Additional fields that real Nest events typically have
-            "event_session_id": f"session_{nest_event_id}",
-            "zones": [],  # Motion zones (empty for person events)
-            "has_sound": False,
-            "has_motion": event_type == "camera_motion",
-            "has_person": event_type == "camera_person",
-            # Attachment structure (even though we read from filesystem)
-            # This makes the event structure match real Nest events
-            "attachment": {
-                "image": f"/api/nest/event_media/{device_id}/{nest_event_id}/thumbnail",
-                # Note: We don't actually use this URL since we read from filesystem,
-                # but including it makes the event structure realistic
-            },
-            # Additional metadata
-            "start_time": now.isoformat(),
-            "end_time": now.isoformat(),
-        }
-        
-        _LOGGER.error(f"=== FIRING DUMMY NEST EVENT ===")
-        _LOGGER.error(f"Event type: nest_event")
-        _LOGGER.error(f"Event data: {nest_event_data}")
-        
-        # Fire the nest_event (this will trigger our NestEventListener)
-        hass.bus.async_fire(
-            "nest_event",
-            nest_event_data
-        )
-        
-        _LOGGER.info(f"Fired dummy nest_event: type={event_type}, device_id={device_id}, nest_event_id={nest_event_id}")
     
     async def recognize_face_service(call: ServiceCall):
         """Service to send image for face recognition.
@@ -273,8 +221,43 @@ async def async_setup_services(hass):
             _LOGGER.error(f"Failed to get image from URL {image_url}: {e}")
             raise
 
-    hass.services.async_register(DOMAIN, "fire_event", fire_event_service)
-    hass.services.async_register(DOMAIN, "fire_nest_event", fire_nest_event_service)
-    hass.services.async_register(DOMAIN, "recognize_face", recognize_face_service)
+    # Define schema for recognize_face service
+    # Start with simple schema - we'll add validation in the service function
+    RECOGNIZE_FACE_SCHEMA = vol.Schema({
+        vol.Required("camera"): cv.string,
+        vol.Optional("image_data"): cv.string,
+        vol.Optional("image_url"): cv.string,
+        vol.Optional("entity_id"): cv.string,
+        vol.Optional("display_name"): cv.string,
+    })
+
+    # Schema for fire_event service
+    FIRE_EVENT_SCHEMA = vol.Schema({
+        vol.Required("person_id"): cv.string,
+        vol.Required("display_name"): cv.string,
+        vol.Required("confidence"): vol.Coerce(float),
+        vol.Required("camera"): cv.string,
+        vol.Optional("image_id"): cv.string,
+        vol.Optional("face_id"): cv.string,
+        vol.Optional("timestamp"): cv.string,
+        vol.Optional("model_version"): cv.string,
+    })
+
+
+    hass.services.async_register(
+        DOMAIN,
+        "fire_event",
+        fire_event_service,
+        schema=FIRE_EVENT_SCHEMA
+    )
+
+
+    hass.services.async_register(
+        DOMAIN,
+        "recognize_face",
+        recognize_face_service,
+        schema=RECOGNIZE_FACE_SCHEMA
+    )
+
     _LOGGER.info("Face Recognition services registered")
 

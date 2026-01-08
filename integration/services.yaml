@@ -30,31 +30,40 @@ fire_event:
       selector:
         text:
 
-fire_nest_event:
-  name: Fire Nest Event
-  description: Manually fire a dummy nest_event for testing Nest event ingestion and video frame extraction
+
+recognize_face:
+  name: Recognize Face
+  description: Send image for face recognition. Provide at least one image source (image_data, image_url, or entity_id).
   fields:
-    device_id:
-      name: Device ID
-      description: Nest device ID (hexadecimal string). Default uses device from your screenshots.
-      required: false
-      default: "65563380bfcf5478f63ff88485eca57"
+    camera:
+      name: Camera
+      description: Camera identifier (required)
+      required: true
       selector:
         text:
-    nest_event_id:
-      name: Nest Event ID
-      description: Nest event ID. If not provided, uses current timestamp. Use an existing event ID from your nest/event_media folder to test with real video files.
+    image_data:
+      name: Image Data
+      description: Base64 encoded image data (alternative to image_url or entity_id)
       required: false
       selector:
         text:
-    event_type:
-      name: Event Type
-      description: Type of Nest event (camera_person or camera_motion)
+    image_url:
+      name: Image URL
+      description: URL to image (alternative to image_data or entity_id)
       required: false
-      default: "camera_person"
       selector:
-        select:
-          options:
-            - camera_person
-            - camera_motion
+        text:
+    entity_id:
+      name: Camera Entity
+      description: Camera entity ID to get image from (alternative to image_data or image_url)
+      required: false
+      selector:
+        entity:
+          domain: camera
+    display_name:
+      name: Display Name
+      description: Optional display name for logging
+      required: false
+      selector:
+        text:
 

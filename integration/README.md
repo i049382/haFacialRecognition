@@ -43,8 +43,6 @@ See `configuration.yaml.example` for configuration options.
 ### `face_recognition.fire_event`
 Manually fire a recognition event (for testing).
 
-### `face_recognition.fire_nest_event`
-Manually fire a Nest event (for testing).
 
 ## Events
 
@@ -55,5 +53,4 @@ Fired when a face is detected and recognized.
 
 - Home Assistant 2024.1 or later
 - Face Recognition Add-on running
-- Nest integration (optional, for Nest camera support)
 

@@ -36,6 +36,18 @@ Thumbs.db
 
 # Home Assistant
 .homeassistant/
+ha_config/
+#homeassistant/config/
+config/
+*.db
+*.db-*
+*.log
+*.fault
+secrets.yaml
+.storage/
+tts/
+deps/
+blueprints/
 
 # Test data
 test_images/

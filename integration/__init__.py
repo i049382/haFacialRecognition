@@ -38,60 +38,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         from . import services
         await services.async_setup_services(hass)
         _LOGGER.error("Services set up successfully")
-        
-        # Chunk 3: Start Nest event listener if configured
-        # For now, we'll start it automatically if Nest integration is available
-        # In future chunks, this will be configurable
-        
-        # Check if Nest integration is available
-        # Note: Nest might load after our integration, so we check immediately and also later
-        _LOGGER.error(f"Checking for Nest integration. Components: nest in components = {'nest' in hass.config.components}")
-        
-        async def start_nest_listener():
-            """Start Nest listener."""
-            from .nest_listener import NestEventListener
 
-            integration_config = config.get(DOMAIN, {})
-            _LOGGER.error(f"=== DEBUG: Integration config from YAML ===")
-            _LOGGER.error(f"Config keys: {list(integration_config.keys())}")
-            _LOGGER.error(f"Full config: {integration_config}")
+        # Store configuration for services to use
+        integration_config = config.get(DOMAIN, {})
+        hass.data.setdefault(DOMAIN, {})["config"] = integration_config
 
-            api_host = integration_config.get("api_host", "localhost")
-            api_port = integration_config.get("api_port", 8080)  # Default matches add-on port (8080)
-            api_token = integration_config.get("api_token", "")
-            ha_api_token = integration_config.get("ha_api_token", "")  # HA API token for internal API calls
-            api_url = f"http://{api_host}:{api_port}"
-
-            _LOGGER.error(f"Connecting to add-on API at {api_url}")
-            _LOGGER.error(f"HA API token present: {'ha_api_token' in integration_config}")
-            _LOGGER.error(f"HA API token length: {len(ha_api_token) if ha_api_token else 0}")
-
-            if ha_api_token:
-                _LOGGER.error("HA API token configured for internal API calls")
-            else:
-                _LOGGER.warning("No HA API token configured - Nest image fetching may fail")
-            
-            nest_listener = NestEventListener(hass, api_url, api_token, ha_api_token)
-            await nest_listener.async_start()
-            
-            hass.data.setdefault(DOMAIN, {})["nest_listener"] = nest_listener
-            _LOGGER.error("Nest listener started successfully")
-        
-        if "nest" in hass.config.components:
-            _LOGGER.error("Nest integration detected, starting Nest event listener")
-            await start_nest_listener()
-        else:
-            _LOGGER.error("Nest integration not found immediately, will check again in 10 seconds")
-            # Check again after a delay (Nest might load after our integration)
-            async def delayed_nest_check():
-                await asyncio.sleep(10)
-                if "nest" in hass.config.components:
-                    _LOGGER.error("Nest integration detected (delayed check), starting Nest event listener")
-                    await start_nest_listener()
-                else:
-                    _LOGGER.error("Nest integration still not found after delay - Nest listener will not start")
-            
-            hass.async_create_task(delayed_nest_check())
+        # Chunk 2: Service-based recognition only (no automatic ingestion)
+        _LOGGER.error("Face Recognition integration ready - use face_recognition.recognize_face service")
         
         _LOGGER.error("Face Recognition integration setup complete")
         return True

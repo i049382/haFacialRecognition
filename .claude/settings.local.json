@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(net use:*)",
+      "Bash(tail:*)",
+      "Bash(./sync_to_ha.bat:*)",
+      "Bash(mklink:*)"
     ]
   }
 }

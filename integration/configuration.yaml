@@ -11,7 +11,7 @@ face_recognition:
   api_token: ""                 # Leave empty if add-on has no authentication
   
   # Required: Home Assistant Long-Lived Access Token
-  # This is used for internal HA API calls (e.g., fetching Nest media)
+  # This is used for internal HA API calls (e.g., fetching camera snapshots)
   # Get this from: Your Profile → Long-Lived Access Tokens → Create Token
   # Replace the text below with your actual token
   ha_api_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjNTg3ZTVhYWQ1NTM0Y2U2YTAzZmUzNDk2NDQ5ZDczMiIsImlhdCI6MTc2Nzc4MjU5MSwiZXhwIjoyMDgzMTQyNTkxfQ.wd-28qDCW0cr-U7CGrM6cIIP-hB0C8eKfmGumybePlI"
